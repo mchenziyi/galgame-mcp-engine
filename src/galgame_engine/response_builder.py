@@ -1,6 +1,4 @@
-﻿"""
-响应构建器 — 解析客户端提交的叙事文本，校验格式，组装结构化输出。
-"""
+"""响应构建器 — 解析、校验、修复叙事文本。"""
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -20,7 +18,6 @@ class NarrBlock:
     choices: list[Choice] = field(default_factory=list)
 
 
-# 区块标记
 _BLOCKS = [
     ("scene",     "【📖 场景速写】"),
     ("sound",     "【🎧 环境音效】"),
@@ -30,7 +27,6 @@ _BLOCKS = [
 
 
 def _to_simplified(text: str) -> str:
-    """将文本中的繁体字替换为简体。优先使用 zhconv 库，不可用时用内建映射。"""
     try:
         from zhconv import convert
         return convert(text, "zh-cn")
@@ -39,7 +35,6 @@ def _to_simplified(text: str) -> str:
 
 
 def _fallback_fan2jian(text: str) -> str:
-    """内建繁体→简体映射。覆盖 galgame 叙事常见字。"""
     mapping = {
         "為": "为", "會": "会", "個": "个", "們": "们", "時": "时", "說": "说",
         "過": "过", "來": "来", "對": "对", "開": "开", "關": "关", "門": "门",
@@ -62,54 +57,26 @@ def _fallback_fan2jian(text: str) -> str:
         "麵": "面", "妳": "你", "週": "周", "臺": "台", "鬆": "松", "乾": "干",
         "鬱": "郁", "託": "托", "捨": "舍", "歷": "历", "曆": "历", "鐘": "钟",
         "闆": "板", "誌": "志", "範": "范", "餘": "余", "併": "并", "嚐": "尝",
-        "曬": "晒", "擺": "摆", "擁": "拥", "擡": "抬", "換": "换", "揚": "扬",
-        "揮": "挥", "搖": "摇", "擇": "择", "擋": "挡", "擠": "挤", "據": "据",
-        "掃": "扫", "掛": "挂", "擴": "扩", "擾": "扰", "擊": "击", "擔": "担",
-        "驚": "惊", "驗": "验", "馬": "马", "飛": "飞", "養": "养", "黃": "黄",
-        "歡": "欢", "條": "条", "殺": "杀", "殘": "残", "淚": "泪", "溫": "温",
-        "準": "准", "滿": "满", "漸": "渐", "潛": "潜", "灣": "湾", "濕": "湿",
-        "無": "无", "煙": "烟", "燒": "烧", "燙": "烫", "營": "营", "爭": "争",
-        "爾": "尔", "牆": "墙", "獨": "独", "獲": "获", "環": "环", "產": "产",
-        "畫": "画", "儘": "尽", "監": "监", "盤": "盘", "睜": "睁", "瞭": "了",
-        "碼": "码", "礎": "础", "禮": "礼", "禍": "祸", "積": "积", "稱": "称",
-        "穩": "稳", "筆": "笔", "簡": "简", "紅": "红", "約": "约", "紙": "纸",
-        "級": "级", "細": "细", "終": "终", "結": "结", "絕": "绝", "統": "统",
-        "絲": "丝", "綠": "绿", "緊": "紧", "線": "线", "編": "编", "緣": "缘",
-        "繞": "绕", "續": "续", "繪": "绘", "繼": "继", "歸": "归", "錄": "录",
-        "鐵": "铁", "鏡": "镜", "長": "长", "閃": "闪", "閉": "闭", "開": "开",
-        "閱": "阅", "際": "际", "隨": "随", "隱": "隐", "雙": "双", "雜": "杂",
-        "響": "响", "頂": "顶", "順": "顺", "預": "预", "頓": "顿", "領": "领",
-        "頻": "频", "題": "题", "額": "额", "顧": "顾", "養": "养", "驗": "验",
-        "體": "体", "鬥": "斗", "麽": "么", "黃": "黄",
     }
-    result = []
-    for ch in text:
-        result.append(mapping.get(ch, ch))
-    return "".join(result)
+    return "".join(mapping.get(ch, ch) for ch in text)
 
 
 def parse(raw: str) -> NarrBlock:
-    """解析四段格式。繁体→简体自动转换。"""
     raw = _to_simplified(raw)
     block = NarrBlock()
-
     positions: list[tuple[int, str, str]] = []
     for field_name, marker in _BLOCKS:
         for m in re.finditer(re.escape(marker), raw):
             positions.append((m.start(), field_name, marker))
-
     positions.sort()
-
     for i, (start, field_name, marker) in enumerate(positions):
         content_start = start + len(marker)
         content_end = positions[i + 1][0] if i + 1 < len(positions) else len(raw)
         content = raw[content_start:content_end].strip()
-
         if field_name == "choices":
             block.choices = _parse_choices(content)
         else:
             setattr(block, field_name, content)
-
     return block
 
 
@@ -134,6 +101,40 @@ def validate(block: NarrBlock) -> list[str]:
     if len(block.choices) < 3:
         errors.append(f"【🎮 行动指令】至少需要 A/B/C 三个选项，当前 {len(block.choices)} 个")
     return errors
+
+
+def repair(block: NarrBlock, raw: str) -> NarrBlock:
+    """向缺失区块自动注入最小内容。已有内容的区块不会被覆盖。"""
+    # scene: 从 narrative 中取前 2-3 句
+    if not block.scene.strip():
+        source = block.narrative if block.narrative.strip() else raw
+        sentences = re.split(r"(?<=[。！？\n])", source[:300])
+        candidates = [s.strip() for s in sentences if len(s.strip()) > 5][:3]
+        block.scene = " ".join(candidates) if candidates else source[:100]
+
+    # sound: 用默认值
+    if not block.sound.strip():
+        block.sound = "（周围很安静）"
+
+    # narrative: 用全文
+    if not block.narrative.strip():
+        block.narrative = raw.strip()
+
+    # choices: 用默认四选
+    if len(block.choices) < 3:
+        defaults = [
+            Choice(key="A", text="继续"),
+            Choice(key="B", text="等待"),
+            Choice(key="C", text="离开"),
+            Choice(key="D", text="输入任何你想做的事情"),
+        ]
+        existing_keys = {c.key for c in block.choices}
+        for c in defaults:
+            if c.key not in existing_keys:
+                block.choices.append(c)
+        block.choices = block.choices[:4]
+
+    return block
 
 
 def to_dict(block: NarrBlock) -> dict[str, Any]:

@@ -78,7 +78,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             lines.append(f"--- Day {result.day} | {result.phase} | Session {result.session}")
             return [TextContent(type="text", text="\n".join(lines))]
         except FormatError as e:
-            return [TextContent(type="text", text=f"FORMAT ERROR: {e}\n请补全缺失区块后重新调用 galgame_action。")]
+            return [TextContent(type="text", text=f"FORMAT ERROR: {e}`n请在下一次 galgame_action 调用中补全以下缺失的区块标记，其他内容保持不变，重新提交完整叙事。")]
 
     elif name == "galgame_status":
         sm = StateManager(GAME_DIR)
