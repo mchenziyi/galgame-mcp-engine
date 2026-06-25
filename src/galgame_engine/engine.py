@@ -5,6 +5,7 @@ LLM 叙事由客户端完成，引擎只负责：
 2. 叙事格式校验 + 自动修复
 3. 字段自动维护（timeline / relationships / items）
 """
+import re
 from dataclasses import dataclass
 
 from .state_manager import (
@@ -34,9 +35,7 @@ class Engine:
             state = self.sm.load_all()
         else:
             state = self.sm.init_default()
-        if not initial_narrative:
-            return self._state_snapshot(state)
-        return self._process(state, initial_narrative)
+        return self._state_snapshot(state)
 
     def action(self, choice: str, narrative: str) -> TurnResult:
         state = self.sm.load_all()
@@ -87,7 +86,7 @@ class Engine:
 
     def _extract_items(self, text: str) -> list[str]:
         items = set()
-        for m in __import__("re").finditer(r"[「『](.+?)[」』]", text):
+        for m in re.finditer(r"[「『](.+?)[」』]", text):
             items.add(m.group(1))
         return [i for i in items if 2 <= len(i) <= 20]
 
@@ -95,7 +94,7 @@ class Engine:
         return list(state.characters.profiles.keys()) + ["player"]
 
     def _slugify(self, name: str) -> str:
-        slug = __import__("re").sub(r"[^a-zA-Z0-9_]", "_", name.lower())[:30]
+        slug = re.sub(r"[^a-zA-Z0-9_]", "_", name.lower())[:30]
         return slug or f"item_{hash(name) % 10000}"
 
 

@@ -159,18 +159,18 @@ class StateManager:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        version = data.pop("_version", 1)
-        relationships_raw = data.pop("_relationships", {})
-        profiles: dict[str, CharacterProfile] = {}
-        for char_id, profile_data in data.items():
-            profiles[char_id] = CharacterProfile(**profile_data)
+        version = data.get("_version", 1)
+        relationships_raw = data.get("_relationships", {})
 
-        rels: dict[str, dict[str, Relationship]] = {}
-        for char_a, inner in relationships_raw.items():
-            rels[char_a] = {}
-            for char_b, rel_data in inner.items():
-                rels[char_a][char_b] = Relationship(**rel_data)
-
+        profiles = {
+            k: CharacterProfile(**v)
+            for k, v in data.items()
+            if k not in ("_version", "_relationships")
+        }
+        rels = {
+            a: {b: Relationship(**r) for b, r in inner.items()}
+            for a, inner in relationships_raw.items()
+        }
         return CharacterState(version=version, profiles=profiles, relationships=rels)
 
     # ── 保存 ──────────────────────────────────────────
