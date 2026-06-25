@@ -61,17 +61,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         narrative = arguments["narrative"]
         try:
             result = engine.action(choice, narrative)
-            lines = [
-                "【📖 场景速写】", result.scene, "",
-                "【🎧 环境音效】", result.sound, "",
-                "【💬 剧情推进 & 对白】", result.narrative, "",
-                "【🎮 行动指令】",
-            ]
-            for c in result.choices:
-                lines.append(f"{c['key']}. {c['text']}")
-            lines.append("")
-            lines.append(f"--- Day {result.day} | {result.phase} | Session {result.session}")
-            return [TextContent(type="text", text="\n".join(lines))]
+            return [TextContent(type="text", text=f'{{"ok": true, "day": {result.day}, "phase": "{result.phase}", "session": {result.session}}}')]
         except FormatError as e:
             return [TextContent(type="text", text=f"FORMAT ERROR: {e}\n请在下一次 galgame_action 调用中补全缺失的区块标记，其他内容保持不变，重新提交完整叙事。")]
 
