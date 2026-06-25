@@ -1,0 +1,18 @@
+﻿[project]
+name = "galgame-mcp-engine"
+version = "0.1.0"
+description = "视觉小说世界引擎 MCP Server"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.0.0",
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "zhconv>=1.4.0",
+]
+
+[project.scripts]
+galgame-engine = "galgame_engine.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
