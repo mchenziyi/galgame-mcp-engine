@@ -43,7 +43,7 @@ args = ["路径/galgame-mcp-engine/src/galgame_engine/server.py"]
 env = { GALGAME_DIR = ".game" }
 ```
 
-然后将 `skill/galgame_world_engine.md` 复制到 `.reasonix/skills/galgame_world_engine/SKILL.md`。
+然后将项目根目录的 `prompt.md` 内容作为系统提示词使用。
 
 重启 Reasonix，输入 `/galgame_world_engine` 开始。
 
@@ -75,12 +75,12 @@ env = { GALGAME_DIR = ".game" }
 | `galgame_action` | 提交玩家操作，引擎校验叙事格式并自动维护存档 |
 | `galgame_status` | 叙事口吻的世界状态摘要 |
 
-推荐配合 `skill/galgame_world_engine.md` 提示词文件使用——它定义了叙事品质标准、角色规则和决策优先级。
+推荐配合项目根目录的 `prompt.md` 使用——它定义了叙事品质标准、角色规则和决策优先级。适配各客户端的桥接配置见 [galgame-is-not-like-this](https://github.com/mchenziyi/galgame-is-not-like-this)。
 
 ## 架构
 
 ```
-skill/galgame_world_engine.md  ← 提示词（叙事哲学、品质要求）
+prompt.md                   ← 通用叙事 prompt（叙事哲学、品质要求）
          │
          ▼
     AI 客户端（LLM）
